@@ -347,6 +347,10 @@
   .hra-actions button { padding:0 18px; height:32px; font-size:12px; font-weight:600; font-family:var(--font); cursor:pointer; border-radius:var(--r-sm); }
 
 
+  /* ── Sage demo buttons ── */
+  .gc-sage-demo-btn { background:#F4FAFD; color:#333; border:1px solid #cfe3ea; transition:background 0.15s; }
+  .gc-sage-demo-btn:hover { background:#e3f0f6; }
+
   /* ── Footer ── */
   .gc-footer { background: var(--white); border-top: 1px solid var(--border); padding: 4px 14px; display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--text-muted); }
   .gc-footer a { color: var(--link); text-decoration: none; }
@@ -2623,6 +2627,9 @@
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">archive</span> Archive</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">history</span> Audit History</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">view_column</span> Choose Columns</span>
+            <button type="button" id="sageCompletedCallBtn" class="gc-sage-demo-btn" onclick="simulateSageCompletedCall();" style="margin:10px 0 10px auto;display:flex;align-items:center;gap:6px;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">
+              <span class="material-icons" style="font-size:14px;">support_agent</span> Sage Completed Call
+            </button>
           </div>
 
           <div class="gc-table-wrap" style="margin-bottom:6px;">
@@ -2887,6 +2894,9 @@
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">send</span> Refer</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">history</span> Audit History</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">check_box</span> Bulk Complete</span>
+            <button type="button" class="gc-sage-demo-btn" onclick="simulateSageInProgress();" style="margin:10px 0 10px auto;display:flex;align-items:center;gap:6px;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">
+              <span class="material-icons" style="font-size:14px;">support_agent</span> Sage in Progress
+            </button>
           </div>
 
           <!-- Outstanding Activities table -->
@@ -3514,6 +3524,19 @@ function openScriptResponseModal(assessmentName) {
 
   var m = md[key] || md['jackson-thomas'] || FALLBACK_MEMBER;
 
+  // Detect whether this script is still in progress (Sage is calling the member — no answers captured yet)
+  // and whether it's a Sage-driven call at all (pending or completed) for the "Answered By ... by Sage" label
+  var isPending = false;
+  var isSageFlow = false;
+  var scriptTbodyCheck = document.getElementById('scriptActivityTbody');
+  if (scriptTbodyCheck) {
+    scriptTbodyCheck.querySelectorAll('tr').forEach(function(row) {
+      if (row.textContent.indexOf(scriptName) === -1) return;
+      if (row.dataset.pending === 'true') isPending = true;
+      if (row.textContent.indexOf('Sage') !== -1) isSageFlow = true;
+    });
+  }
+
   var now = new Date();
   var pad = function(n) { return String(n).padStart(2,'0'); };
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -3524,7 +3547,7 @@ function openScriptResponseModal(assessmentName) {
            pad(h)+':'+pad(now.getMinutes())+':'+pad(now.getSeconds())+' '+(h<12?'AM':'PM');
   var completedBy = (m.careManager || 'Beatrice Kanya') + ' : All Access Admin';
   var od = window._gcOutcomeData || {};
-  var outcomeType     = od.outcomeType     || 'Successful';
+  var outcomeType     = isPending ? 'Scheduled' : (od.outcomeType || 'Successful');
   var activityOutcome = od.activityOutcome || 'Attended';
   var duration        = od.duration        || '00:00:00';
   var contactType     = od.contactType     || 'N/A';
@@ -3533,7 +3556,7 @@ function openScriptResponseModal(assessmentName) {
 
   var totalScore = 0;
   qa.forEach(function(r){ totalScore += (r.score||0); });
-  var totalFmt = totalScore.toFixed(6);
+  var totalFmt = isPending ? (0).toFixed(6) : totalScore.toFixed(6);
 
   // Build table rows
   var rowsHtml = '';
@@ -3543,11 +3566,11 @@ function openScriptResponseModal(assessmentName) {
       '<td style="padding:5px 9px;border:1px solid #e0e0e0;width:24px;"></td>' +
       '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+scriptName+'</td>' +
       '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+(r.q||'')+'</td>' +
-      '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+(r.option||'')+'</td>' +
-      '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+(r.sub||'')+'</td>' +
-      '<td style="padding:5px 9px;border:1px solid #e0e0e0;text-align:right;">'+(r.score>0?r.score.toFixed(2):'0')+'</td>' +
+      '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+(isPending ? '' : (r.option||''))+'</td>' +
+      '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+(isPending ? '' : (r.sub||''))+'</td>' +
+      '<td style="padding:5px 9px;border:1px solid #e0e0e0;text-align:right;">'+(isPending ? '0' : (r.score>0?r.score.toFixed(2):'0'))+'</td>' +
       '<td style="padding:5px 9px;border:1px solid #e0e0e0;">N/A</td>' +
-      '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+(m.name||'')+'</td>' +
+      '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+(isSageFlow ? (m.name||'')+' by Sage' : (m.name||''))+'</td>' +
       '<td style="padding:5px 9px;border:1px solid #e0e0e0;">'+ts+'</td>' +
       '</tr>';
   });
@@ -3579,7 +3602,9 @@ function openScriptResponseModal(assessmentName) {
         '<div><strong>Member\'s DOB :</strong> '+dobFmt+'</div>' +
         '<div><strong>Member Name :</strong> '+m.name+'</div>' +
         '<div><strong>Script Name :</strong> '+scriptName+'</div>' +
-        '<div><strong>Completed By :</strong> '+completedBy+'</div>' +
+        (isSageFlow
+          ? '<div><strong>Answered By :</strong> '+(m.name||'')+' by Sage</div>'
+          : '<div><strong>Completed By :</strong> '+completedBy+'</div>') +
         '<div><strong>Completed On :</strong> '+ts+'</div>' +
         '<div><strong>Eligibility :</strong> N/A</div>' +
         '<div><strong>Program Name :</strong> '+(m.program||'N/A')+'</div>' +
@@ -3810,7 +3835,7 @@ window._gcAllAssessmentQA = {
     memberItems.forEach(function(item) {
       var parts = (item.date || '').split(' ');
       var rowDate = parts[0] || '';
-      var rowTime = parts[1] ? parts[1].substring(0, 5) : '';
+      var rowTime = item.contactType === 'Sage' ? '00:00' : (parts[1] ? parts[1].substring(0, 5) : '');
       var tr = document.createElement('tr');
       tr.dataset.dynamic = 'true';
       var assessmentCell = (currentMemberKey === 'maria-rivera')
@@ -3819,7 +3844,7 @@ window._gcAllAssessmentQA = {
       var statusCell = item.status === 'In Progress' ? 'In Progress' : 'Accepted';
       tr.innerHTML = '<td><input type="checkbox" /></td>' +
         '<td>Assessment</td>' +
-        '<td>Wellframe</td>' +
+        '<td>' + (item.contactType || 'Wellframe') + '</td>' +
         '<td>High</td>' +
         '<td>' + rowDate + '</td>' +
         '<td>N/A</td>' +
@@ -3832,10 +3857,33 @@ window._gcAllAssessmentQA = {
         '<td>Beatrice Kanya : All Access Admin</td>' +
         '<td>N/A</td>' +
         '<td style="font-size:10px;">' + item.date + '</td>' +
-        '<td><span class="material-icons" style="font-size:18px;color:#5a8aab;cursor:pointer;" title="Edit">edit_note</span> ' +
-        '<span class="material-icons" style="font-size:18px;color:#315E7B;cursor:pointer;" title="Perform Activity" onclick="openOutcomeModal();">thumb_up</span> ' +
-        '<span class="material-icons" style="font-size:18px;color:#5a8aab;cursor:pointer;" title="Delete">delete</span></td>';
+        '<td style="white-space:nowrap;">' + (item.contactType === 'Sage' ? _ACT_SAGE : _ACT) + '</td>';
       tbody.insertBefore(tr, tbody.firstChild);
+    });
+
+    // Re-render one row per generic activity (non-assessment) added via the Add Activity modal
+    var customItems = JSON.parse(localStorage.getItem('wf_outstanding_activities') || '[]');
+    var memberCustom = customItems.filter(function(it) { return it.memberKey === currentMemberKey; });
+    memberCustom.forEach(function(item) {
+      var ctr = document.createElement('tr');
+      ctr.dataset.dynamic = 'true';
+      ctr.innerHTML = '<td><input type="checkbox"/></td>' +
+        '<td>' + item.activityType + '</td>' +
+        '<td>' + item.contactType + '</td>' +
+        '<td>' + item.priority + '</td>' +
+        '<td>' + item.followUpDate + '</td>' +
+        '<td>' + item.dueDate + '</td>' +
+        '<td>' + (item.contactType === 'Sage' ? '00:00' : item.callTime) + '</td>' +
+        '<td>' + item.script + '</td>' +
+        '<td>N/A</td><td>N/A</td>' +
+        '<td>Beatrice Kanya : All Access Admin</td>' +
+        '<td>N/A</td>' +
+        '<td>Accepted</td>' +
+        '<td>Beatrice Kanya : All Access Admin</td>' +
+        '<td>' + item.notes + '</td>' +
+        '<td style="font-size:10px;">' + item.createdOn + '</td>' +
+        '<td style="white-space:nowrap;">' + (item.contactType === 'Sage' ? _ACT_SAGE : _ACT) + '</td>';
+      tbody.insertBefore(ctr, tbody.firstChild);
     });
   }
 
@@ -4186,10 +4234,11 @@ window._gcAllAssessmentQA = {
     if (bannerContent) bannerContent.innerHTML = '<strong>Activity added successfully</strong> — A new activity has been scheduled for ' + name + '.';
     modalBanner.style.display = '';
     if (closeModal) {
-      // Show briefly in modal then close
+      // Show briefly in modal then close, then jump to Outstanding Activities
       setTimeout(function() {
         document.getElementById('addActivityModal').classList.remove('open');
         modalBanner.style.display = 'none';
+        goToOutstandingActivities();
       }, 1500);
     } else {
       // Auto-hide after 5 seconds
@@ -4221,6 +4270,19 @@ window._gcAllAssessmentQA = {
     var timeStr = hh+':'+mi;
     var createdStr = mm+'/'+dd+'/'+yyyy+' '+hh+':'+mi+':'+String(now.getSeconds()).padStart(2,'0');
 
+    // Capture the remaining modal fields needed for the Outstanding Activities row
+    var contactTypeSelect = document.getElementById('modalContactType');
+    var contactTypeVal = contactTypeSelect ? contactTypeSelect.value : 'N/A';
+    var createdOnStr = contactTypeVal === 'Sage' ? (mm+'/'+dd+'/'+yyyy+' 00:00:00') : createdStr;
+    var prioritySelect = document.getElementById('modalPriority');
+    var priorityVal = (prioritySelect && prioritySelect.value !== 'Select') ? prioritySelect.value.replace(/^\d+\w{2}\s+—\s+/, '') : 'N/A';
+    var schedDateInput = document.getElementById('modalScheduledDate');
+    var schedParts = (schedDateInput && schedDateInput.value ? schedDateInput.value : '').split(' ');
+    var followUpDate = schedParts[0] || 'N/A';
+    var callTimeVal = schedParts[1] || 'N/A';
+    var dueDateInput = document.getElementById('modalDueDate');
+    var dueDateVal = (dueDateInput && dueDateInput.value) ? dueDateInput.value.split(' ')[0] : 'N/A';
+
     // Save to localStorage so member-cwfassessments checklist can pick it up
     if (activityTypeVal === 'Assessment' && scriptVal !== 'N/A') {
       var allItems = JSON.parse(localStorage.getItem('wf_member_checklist') || '[]');
@@ -4228,12 +4290,28 @@ window._gcAllAssessmentQA = {
       allItems = allItems.filter(function(it) {
         return !(it.memberKey === currentMemberKey && it.assessment === scriptVal);
       });
-      allItems.unshift({ assessment: scriptVal, addedBy: 'Beatrice Kanya', date: createdStr, status: 'Pending', memberKey: currentMemberKey });
+      allItems.unshift({ assessment: scriptVal, addedBy: 'Beatrice Kanya', date: createdOnStr, status: 'Pending', memberKey: currentMemberKey, contactType: contactTypeVal });
       localStorage.setItem('wf_member_checklist', JSON.stringify(allItems));
       // Signal m-unauthenticated (maria-rivera's app) which assessment to show
       if (currentMemberKey === 'maria-rivera') {
         localStorage.setItem('gc-pending-assessment', scriptVal);
       }
+    } else {
+      // Non-assessment activities: persist as their own Outstanding Activities row
+      var outstandingItems = JSON.parse(localStorage.getItem('wf_outstanding_activities') || '[]');
+      outstandingItems.unshift({
+        memberKey: currentMemberKey,
+        activityType: activityTypeVal,
+        contactType: contactTypeVal,
+        priority: priorityVal,
+        followUpDate: followUpDate,
+        dueDate: dueDateVal,
+        callTime: callTimeVal,
+        script: scriptVal,
+        notes: notesVal,
+        createdOn: createdOnStr
+      });
+      localStorage.setItem('wf_outstanding_activities', JSON.stringify(outstandingItems));
     }
 
     // Sync Outstanding Activities table from localStorage (single source of truth)
@@ -4258,8 +4336,8 @@ window._gcAllAssessmentQA = {
       setTimeout(function() { gtr.style.transition = 'background 1.5s'; gtr.style.background = ''; }, 100);
     }
 
-    // Add alert to dashboard My Alerts
-    var dashAlerts = document.getElementById('dashAlertsTbody');
+    // Add alert to dashboard My Alerts (skip for Sage — the activity is only just being scheduled, not completed)
+    var dashAlerts = contactTypeVal !== 'Sage' ? document.getElementById('dashAlertsTbody') : null;
     if (dashAlerts) {
       var alertMemberKey = currentMemberKey;
       var atr = document.createElement('tr');
@@ -4337,12 +4415,14 @@ window._gcAllAssessmentQA = {
     ? '/gc-assessments/m-unauthenticated/'
     : _SITE_BASE + '/m-unauthenticated/';
   var _ACT = '<span class="material-icons" style="font-size:18px;color:#5a8aab;cursor:pointer;" title="Edit">edit_note</span> <span class="material-icons" style="font-size:18px;color:#315E7B;cursor:pointer;" title="Perform Activity" onclick="openOutcomeModal();">thumb_up</span> <span class="material-icons" style="font-size:18px;color:#5a8aab;cursor:pointer;" title="Delete">delete</span>';
+  // Sage-assigned activities don't get a manual "Perform Activity" action — Sage completes the call itself
+  var _ACT_SAGE = '<span class="material-icons" style="font-size:18px;color:#5a8aab;cursor:pointer;" title="Edit">edit_note</span> <span class="material-icons" style="font-size:18px;color:#5a8aab;cursor:pointer;" title="Delete">delete</span>';
   var _VIS = '<span class="material-icons" style="font-size:14px;color:var(--teal);cursor:pointer;">visibility</span>';
   var _DEL = '<span style="font-size:10px;color:var(--link);cursor:pointer;">Delete</span>';
   var _SDOC = '<span class="material-icons" style="font-size:14px;color:var(--teal);cursor:pointer;">description</span><br>' + _DEL;
   function _nr(type,note,by,date){return '<tr><td><input type="checkbox"/></td><td>'+type+'</td><td>'+note+'</td><td>'+_VIS+'</td><td>N/A</td><td>N/A</td><td>'+by+'</td><td>'+date+'</td><td>N/A</td><td>N/A</td></tr>';}
-  function _sr(script,date,by,status,complete,program,score,actType,outcome,dur){return '<tr><td><input type="checkbox"/></td><td><a href="#" style="color:var(--link);font-size:11px;">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>'+status+'</td><td>'+complete+'</td><td>N/A</td><td>'+program+'</td><td>'+score+'</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">'+outcome+'</a></td><td>'+dur+'</td><td>'+_SDOC+'</td></tr>';}
-  function _sr_pending(script,date,by,program,actType){return '<tr data-pending="true"><td><input type="checkbox"/></td><td><a href="#" onclick="event.preventDefault();openScriptResponseModal(this.textContent);" style="color:var(--link);font-size:11px;">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>In Progress</td><td>N/A</td><td>N/A</td><td>'+program+'</td><td>0</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">Add</a></td><td>N/A</td><td>'+_SDOC+'</td></tr>';}
+  function _sr(script,date,by,status,complete,program,score,actType,outcome,dur){return '<tr><td><input type="checkbox"/></td><td><a href="#" style="color:var(--link);">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>'+status+'</td><td>'+complete+'</td><td>N/A</td><td>'+program+'</td><td>'+score+'</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">'+outcome+'</a></td><td>'+dur+'</td><td>'+_SDOC+'</td></tr>';}
+  function _sr_pending(script,date,by,program,actType){return '<tr data-pending="true"><td><input type="checkbox"/></td><td><a href="#" onclick="event.preventDefault();openScriptResponseModal(this.textContent);" style="color:var(--link);">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>In Progress</td><td>N/A</td><td>N/A</td><td>'+program+'</td><td>0</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">Add</a></td><td>N/A</td><td>'+_SDOC+'</td></tr>';}
   function _gr(date,by,type,outcome){return '<tr><td>'+date+'</td><td>'+by+'</td><td>N/A</td><td>N/A</td><td>'+type+'</td><td>N/A</td><td>N/A</td><td><a href="#" style="color:var(--link);">'+outcome+'</a></td><td>'+_VIS+'</td><td>'+_DEL+'</td></tr>';}
   function _gs(sched,by,type){return '<tr><td>N/A</td><td>N/A</td><td>'+sched+'</td><td>'+by+'</td><td>'+type+'</td><td>N/A</td><td>N/A</td><td><a href="#" style="color:var(--link);">Scheduled</a></td><td>'+_VIS+'</td><td>'+_DEL+'</td></tr>';}
   function _or(type,priority,followUp,callTime,created){return '<tr><td><input type="checkbox"/></td><td>'+type+'</td><td></td><td>'+priority+'</td><td>'+followUp+'</td><td>N/A</td><td>'+callTime+'</td><td>N/A</td><td>N/A</td><td>N/A</td><td>Beatrice Kanya : All Access Admin</td><td>N/A</td><td>Accepted</td><td>Beatrice Kanya : All Access Admin</td><td>N/A</td><td style="font-size:10px;">'+created+'</td><td style="white-space:nowrap;">'+_ACT+'</td></tr>';}
@@ -5164,6 +5244,123 @@ window._gcAllAssessmentQA = {
     }
   }
 
+  // Demo: simulate Sage (AI) picking up whatever is outstanding for this member and calling them
+  window.simulateSageInProgress = function() {
+    var key = currentMemberKey;
+    var d = memberTabData[key];
+    if (!d) return;
+
+    var now = new Date();
+    var mm = String(now.getMonth()+1).padStart(2,'0');
+    var dd = String(now.getDate()).padStart(2,'0');
+    var yyyy = now.getFullYear();
+    var hh = String(now.getHours()).padStart(2,'0');
+    var mi = String(now.getMinutes()).padStart(2,'0');
+    var ss = String(now.getSeconds()).padStart(2,'0');
+    var createdStr = mm+'/'+dd+'/'+yyyy+' '+hh+':'+mi+':'+ss;
+    var scriptDateStr = mm+'/'+dd+'/'+yyyy+' 00:00:00';
+
+    var pickedUp = [];
+
+    // Assessment activities added via the modal (Activity Type = Assessment) live in the member checklist
+    var checklist = JSON.parse(localStorage.getItem('wf_member_checklist') || '[]');
+    var remainingChecklist = checklist.filter(function(it) {
+      if (it.memberKey === key && it.status !== 'Completed') {
+        pickedUp.push(it.assessment);
+        return false;
+      }
+      return true;
+    });
+    localStorage.setItem('wf_member_checklist', JSON.stringify(remainingChecklist));
+
+    // All other activities added via the modal live in the generic outstanding-activities store
+    var customItems = JSON.parse(localStorage.getItem('wf_outstanding_activities') || '[]');
+    var remainingCustom = customItems.filter(function(it) {
+      if (it.memberKey === key) {
+        pickedUp.push((it.script && it.script !== 'N/A') ? it.script : 'Health Risk Assessment');
+        return false;
+      }
+      return true;
+    });
+    localStorage.setItem('wf_outstanding_activities', JSON.stringify(remainingCustom));
+
+    // Fall back to the default demo assessment if nothing was actually outstanding
+    if (pickedUp.length === 0) pickedUp.push('Health Risk Assessment');
+
+    // Remove any matching static outstanding rows, then add Script + General Activity rows for each
+    pickedUp.forEach(function(name) {
+      d.outstandingActivities = d.outstandingActivities.filter(function(html) { return html.indexOf(name) === -1; });
+      var alreadyPending = d.scriptActivity.some(function(html) { return html.indexOf(name) !== -1; });
+      if (!alreadyPending) {
+        d.scriptActivity.unshift(_sr_pending(name, scriptDateStr, 'Sage', 'Health Risk Assessment', 'Assessments'));
+      }
+      d.generalActivity.unshift(_gr(createdStr, 'Sage', name, 'Pending'));
+    });
+
+    window._gcSelectedActivity = pickedUp[0];
+    populateTabs(key);
+    goToActivitySummary();
+  };
+
+  // Demo: simulate Sage finishing the call and reporting back full assessment answers
+  window.simulateSageCompletedCall = function() {
+    var key = currentMemberKey;
+    var d = memberTabData[key];
+    if (!d) return;
+
+    var pad2 = function(n) { return String(n).padStart(2, '0'); };
+    var fmtDateTime = function(dt) {
+      return pad2(dt.getMonth()+1)+'/'+pad2(dt.getDate())+'/'+dt.getFullYear()+' '+
+        pad2(dt.getHours())+':'+pad2(dt.getMinutes())+':'+pad2(dt.getSeconds());
+    };
+
+    // Call takes somewhere between 20-29 minutes, ending now
+    var durationMinutes = 20 + Math.floor(Math.random() * 10);
+    var durationStr = '00:' + pad2(durationMinutes) + ':00';
+    var completedAt = new Date();
+    var performedAt = new Date(completedAt.getTime() - durationMinutes * 60000);
+    var performedDateStr = fmtDateTime(performedAt);
+    var completedDateStr = fmtDateTime(completedAt);
+
+    // Find the pending script (added by Sage in Progress) for this member
+    var scriptTbody = document.getElementById('scriptActivityTbody');
+    var assessmentName = 'Health Risk Assessment';
+    var pendingRow = scriptTbody ? scriptTbody.querySelector('tr[data-pending="true"]') : null;
+    if (pendingRow) {
+      var link = pendingRow.querySelector('a');
+      if (link && link.textContent.trim()) assessmentName = link.textContent.trim();
+    }
+
+    // Build the fully-answered Q&A set — every question gets an Option, and a Sub Option too
+    var baseQA = (window._gcAllAssessmentQA && window._gcAllAssessmentQA[assessmentName]) || [];
+    var enrichedQA = baseQA.map(function(r) {
+      return { q: r.q, option: r.option, sub: (r.sub && r.sub.length) ? r.sub : r.option, score: r.score };
+    });
+    localStorage.setItem('assessment-completed-qa-' + key, JSON.stringify({ assessmentType: assessmentName, qa: enrichedQA }));
+
+    // Replace the pending Script Activity row with a completed one
+    d.scriptActivity = d.scriptActivity.filter(function(html) {
+      return !(html.indexOf('data-pending="true"') !== -1 && html.indexOf(assessmentName) !== -1);
+    });
+    d.scriptActivity.unshift(
+      _sr(assessmentName, performedDateStr, 'Sage', 'Completed', completedDateStr, assessmentName, '21.72', 'Assessments', 'Add', durationStr)
+    );
+
+    // Flip the matching General Activity row's outcome from Pending to Completed
+    d.generalActivity = d.generalActivity.map(function(html) {
+      if (html.indexOf(assessmentName) === -1) return html;
+      return html.replace('>Pending<', '>Completed<');
+    });
+
+    window._gcSelectedActivity = assessmentName;
+    populateTabs(key);
+    goToActivitySummary();
+
+    // This is the final step of the demo flow — remove the button now that the call is complete
+    var completedCallBtn = document.getElementById('sageCompletedCallBtn');
+    if (completedCallBtn) completedCallBtn.remove();
+  };
+
   // Cross-origin: receive postMessage from member app opened via window.open()
   window.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'ASSESSMENT_COMPLETED') {
@@ -5198,7 +5395,7 @@ window._gcAllAssessmentQA = {
     };
   }
 
-  function goToActivitySummary() {
+  function goToActivityTab(artabName) {
     // Ensure member view is visible
     showMemberView();
     // Activate activity-record left nav
@@ -5208,13 +5405,23 @@ window._gcAllAssessmentQA = {
     if (arNav) arNav.classList.add('active');
     var arPanel = document.getElementById('panel-activity-record');
     if (arPanel) arPanel.classList.add('active');
-    // Switch to Activity Summary tab
+    // Switch to the requested Activity Record tab
     document.querySelectorAll('#activityTabs .gc-tab').forEach(function(t) { t.classList.remove('active'); t.style.color = ''; t.style.borderBottomColor = ''; });
     document.querySelectorAll('.ar-tab-panel').forEach(function(p) { p.style.display = 'none'; p.classList.remove('active'); });
-    var asTab = document.querySelector('#activityTabs .gc-tab[data-artab="activity-summary"]');
-    if (asTab) { asTab.classList.add('active'); asTab.style.color = 'var(--teal)'; asTab.style.borderBottomColor = 'var(--teal)'; }
-    var asPanel = document.getElementById('artab-activity-summary');
-    if (asPanel) { asPanel.style.display = ''; asPanel.classList.add('active'); }
+    var targetTab = document.querySelector('#activityTabs .gc-tab[data-artab="' + artabName + '"]');
+    if (targetTab) { targetTab.classList.add('active'); targetTab.style.color = 'var(--teal)'; targetTab.style.borderBottomColor = 'var(--teal)'; }
+    var targetPanel = document.getElementById('artab-' + artabName);
+    if (targetPanel) { targetPanel.style.display = ''; targetPanel.classList.add('active'); }
+    if (artabName === 'outstanding-activities') syncOutstandingActivities();
+    if (artabName === 'activity-summary') syncCompletedToActivitySummary();
+  }
+
+  function goToActivitySummary() {
+    goToActivityTab('activity-summary');
+  }
+
+  function goToOutstandingActivities() {
+    goToActivityTab('outstanding-activities');
   }
 
   window.captureAndProceed = function() {
@@ -5507,7 +5714,8 @@ function rrTypeChange(val) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="gc-modal-field">
           <label><span class="req">*</span>Contact Type</label>
-          <select class="gc-modal-select">
+          <select id="modalContactType" class="gc-modal-select">
+            <option selected value="Sage">Member - Sage</option>
             <option>Member - Phone</option>
             <option>Member - Face to Face</option>
             <option>Member - Telehealth</option>
@@ -5537,7 +5745,7 @@ function rrTypeChange(val) {
         </div>
         <div class="gc-modal-field">
           <label>Priority</label>
-          <select class="gc-modal-select">
+          <select id="modalPriority" class="gc-modal-select">
             <option>Select</option>
             <option>1st — Urgent</option>
             <option>2nd — High</option>
@@ -5563,7 +5771,7 @@ function rrTypeChange(val) {
           <label><span class="req">*</span>Scheduled Date <span style="font-size:11px;color:#888;font-weight:400;">MM/DD/YYYY HH:MM</span></label>
           <div style="display:flex;align-items:center;gap:6px;">
             <div style="position:relative;display:inline-flex;align-items:center;">
-              <input class="gc-modal-input" type="text" value="03/25/2026 08:10" style="width:170px;padding-right:50px;" />
+              <input id="modalScheduledDate" class="gc-modal-input" type="text" value="03/25/2026 08:10" style="width:170px;padding-right:50px;" />
               <span style="position:absolute;right:8px;display:flex;gap:4px;color:var(--teal);">
                 <span class="material-icons" style="font-size:15px;">calendar_month</span>
                 <span class="material-icons" style="font-size:15px;">schedule</span>
@@ -5580,7 +5788,7 @@ function rrTypeChange(val) {
       <div class="gc-modal-field" style="max-width:240px;">
         <label>Due Date <span style="font-size:11px;color:#888;font-weight:400;">MM/DD/YYYY HH:MM</span></label>
         <div style="position:relative;display:inline-flex;align-items:center;">
-          <input class="gc-modal-input" type="text" style="width:200px;padding-right:50px;" />
+          <input id="modalDueDate" class="gc-modal-input" type="text" style="width:200px;padding-right:50px;" />
           <span style="position:absolute;right:8px;display:flex;gap:4px;color:var(--teal);">
             <span class="material-icons" style="font-size:15px;">calendar_month</span>
             <span class="material-icons" style="font-size:15px;">schedule</span>
