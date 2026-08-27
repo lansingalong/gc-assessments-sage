@@ -351,6 +351,13 @@
   .gc-sage-demo-btn { background:#F4FAFD; color:#333; border:1px solid #cfe3ea; transition:background 0.15s; }
   .gc-sage-demo-btn:hover { background:#e3f0f6; }
 
+  /* ── Instant black/white tooltip for locked Sage rows (no native title delay) ── */
+  #gcLockedTooltip {
+    position:fixed; display:none; background:#000; color:#fff; padding:6px 10px; border-radius:4px;
+    font-size:11px; font-weight:400; line-height:1.4; white-space:normal;
+    width:240px; z-index:2147483647; pointer-events:none;
+  }
+
   /* ── Footer ── */
   .gc-footer { background: var(--white); border-top: 1px solid var(--border); padding: 4px 14px; display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--text-muted); }
   .gc-footer a { color: var(--link); text-decoration: none; }
@@ -2627,7 +2634,6 @@
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">archive</span> Archive</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">history</span> Audit History</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">view_column</span> Choose Columns</span>
-            <button type="button" id="sageActivelyCallingBtn" class="gc-sage-demo-btn" onclick="simulateSageActivelyCalling();" style="margin:10px 0 10px auto;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">Sage in Progress</button>
             <button type="button" id="sageCompletedCallBtn" class="gc-sage-demo-btn" onclick="simulateSageCompletedCall();" style="display:none;margin:10px 0 10px auto;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">Sage Completed Call</button>
           </div>
 
@@ -4425,12 +4431,56 @@ window._gcAllAssessmentQA = {
   var _VIS = '<span class="material-icons" style="font-size:14px;color:var(--teal);cursor:pointer;">visibility</span>';
   var _DEL = '<span style="font-size:10px;color:var(--link);cursor:pointer;">Delete</span>';
   var _SDOC = '<span class="material-icons" style="font-size:14px;color:var(--teal);cursor:pointer;">description</span><br>' + _DEL;
-  var _SDOC_DISABLED = '<span class="material-icons" style="font-size:14px;color:#ccc;cursor:not-allowed;">description</span><br><span style="font-size:10px;color:#ccc;cursor:not-allowed;">Delete</span>';
+  var _SDOC_DISABLED = '<span class="material-icons" style="font-size:14px;color:#767676;cursor:not-allowed;">description</span><br><span style="font-size:10px;color:#767676;cursor:not-allowed;">Delete</span>';
   function _nr(type,note,by,date){return '<tr><td><input type="checkbox"/></td><td>'+type+'</td><td>'+note+'</td><td>'+_VIS+'</td><td>N/A</td><td>N/A</td><td>'+by+'</td><td>'+date+'</td><td>N/A</td><td>N/A</td></tr>';}
   function _sr(script,date,by,status,complete,program,score,actType,outcome,dur){return '<tr><td><input type="checkbox"/></td><td><a href="#" style="color:var(--link);">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>'+status+'</td><td>'+complete+'</td><td>N/A</td><td>'+program+'</td><td>'+score+'</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">'+outcome+'</a></td><td>'+dur+'</td><td>'+_SDOC+'</td></tr>';}
   function _sr_pending(script,date,by,program,actType,status){return '<tr data-pending="true"><td><input type="checkbox"/></td><td><a href="#" onclick="event.preventDefault();openScriptResponseModal(this.textContent);" style="color:var(--link);">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>'+(status||'In Progress')+'</td><td>N/A</td><td>N/A</td><td>'+program+'</td><td>0</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">Add</a></td><td>N/A</td><td>'+_SDOC+'</td></tr>';}
   // Sage is actively on the call — the row is locked down until the call finishes
-  function _sr_calling(script,date,by,program,actType){return '<tr data-pending="true"><td><input type="checkbox"/></td><td><span style="color:#999;cursor:not-allowed;">'+script+'</span></td><td>'+date+'</td><td>'+by+'</td><td>In Progress</td><td>N/A</td><td>N/A</td><td>'+program+'</td><td>0</td><td>'+actType+'</td><td><span style="color:#999;cursor:not-allowed;">Add</span></td><td>N/A</td><td>'+_SDOC_DISABLED+'</td></tr>';}
+  var _SAGE_CALLING_TOOLTIP = 'Sage is on the phone with the member right now, so this activity is locked. Check back once the call wraps up to make changes.';
+
+  // Shared tooltip element appended to <body> so it's never clipped by a scrollable ancestor
+  var _lockedTooltipEl = document.getElementById('gcLockedTooltip');
+  if (!_lockedTooltipEl) {
+    _lockedTooltipEl = document.createElement('div');
+    _lockedTooltipEl.id = 'gcLockedTooltip';
+    document.body.appendChild(_lockedTooltipEl);
+  }
+  document.addEventListener('mouseover', function(e) {
+    var cell = e.target.closest ? e.target.closest('.gc-locked-cell') : null;
+    if (!cell) return;
+    _lockedTooltipEl.textContent = cell.getAttribute('data-tooltip') || '';
+    var rect = cell.getBoundingClientRect();
+    _lockedTooltipEl.style.display = 'block';
+    var top = rect.top - _lockedTooltipEl.offsetHeight - 6;
+    if (top < 0) top = rect.bottom + 6;
+    _lockedTooltipEl.style.top = top + 'px';
+    _lockedTooltipEl.style.left = rect.left + 'px';
+  });
+  document.addEventListener('mouseout', function(e) {
+    var cell = e.target.closest ? e.target.closest('.gc-locked-cell') : null;
+    if (!cell) return;
+    _lockedTooltipEl.style.display = 'none';
+  });
+  function _sr_calling(script,date,by,program,actType){
+    var t = ' class="gc-locked-cell" data-tooltip="'+_SAGE_CALLING_TOOLTIP+'"';
+    var c = 'style="color:#767676;cursor:not-allowed;"'+t;
+    var cu = 'style="color:#767676;cursor:not-allowed;text-decoration:underline;"'+t;
+    return '<tr data-pending="true">' +
+      '<td'+t+'><input type="checkbox" disabled style="cursor:not-allowed;"/></td>' +
+      '<td '+cu+'>'+script+'</td>' +
+      '<td '+c+'>'+date+'</td>' +
+      '<td '+c+'>'+by+'</td>' +
+      '<td '+c+'>In Progress</td>' +
+      '<td '+c+'>N/A</td>' +
+      '<td '+c+'>N/A</td>' +
+      '<td '+c+'>'+program+'</td>' +
+      '<td '+c+'>0</td>' +
+      '<td '+c+'>'+actType+'</td>' +
+      '<td '+c+'>Add</td>' +
+      '<td '+c+'>N/A</td>' +
+      '<td '+c+'>'+_SDOC_DISABLED+'</td>' +
+    '</tr>';
+  }
   function _gr(date,by,type,outcome){return '<tr><td>'+date+'</td><td>'+by+'</td><td>N/A</td><td>N/A</td><td>'+type+'</td><td>N/A</td><td>N/A</td><td><a href="#" style="color:var(--link);">'+outcome+'</a></td><td>'+_VIS+'</td><td>'+_DEL+'</td></tr>';}
   function _gs(sched,by,type){return '<tr><td>N/A</td><td>N/A</td><td>'+sched+'</td><td>'+by+'</td><td>'+type+'</td><td>N/A</td><td>N/A</td><td><a href="#" style="color:var(--link);">Scheduled</a></td><td>'+_VIS+'</td><td>'+_DEL+'</td></tr>';}
   function _or(type,priority,followUp,callTime,created){return '<tr><td><input type="checkbox"/></td><td>'+type+'</td><td></td><td>'+priority+'</td><td>'+followUp+'</td><td>N/A</td><td>'+callTime+'</td><td>N/A</td><td>N/A</td><td>N/A</td><td>Beatrice Kanya : All Access Admin</td><td>N/A</td><td>Accepted</td><td>Beatrice Kanya : All Access Admin</td><td>N/A</td><td style="font-size:10px;">'+created+'</td><td style="white-space:nowrap;">'+_ACT+'</td></tr>';}
@@ -5295,12 +5345,13 @@ window._gcAllAssessmentQA = {
     // Fall back to the default demo assessment if nothing was actually outstanding
     if (pickedUp.length === 0) pickedUp.push('Health Risk Assessment');
 
-    // Remove any matching static outstanding rows, then add Script + General Activity rows for each
+    // Remove any matching static outstanding rows, then add Script + General Activity rows for each,
+    // locked down right away since Sage is calling the member immediately
     pickedUp.forEach(function(name) {
       d.outstandingActivities = d.outstandingActivities.filter(function(html) { return html.indexOf(name) === -1; });
       var alreadyPending = d.scriptActivity.some(function(html) { return html.indexOf(name) !== -1; });
       if (!alreadyPending) {
-        d.scriptActivity.unshift(_sr_pending(name, scriptDateStr, 'Sage', 'Health Risk Assessment', 'Assessments', 'Scheduled'));
+        d.scriptActivity.unshift(_sr_calling(name, scriptDateStr, 'Sage', 'Health Risk Assessment', 'Assessments'));
       }
       d.generalActivity.unshift(_gr(createdStr, 'Sage', name, 'Pending'));
     });
@@ -5308,41 +5359,8 @@ window._gcAllAssessmentQA = {
     window._gcSelectedActivity = pickedUp[0];
     populateTabs(key);
     goToActivitySummary();
-  };
 
-  // Demo: simulate Sage actively on the call, filling out the form live — lock the row down until it's done
-  window.simulateSageActivelyCalling = function() {
-    var key = currentMemberKey;
-    var d = memberTabData[key];
-    if (!d) return;
-
-    var scriptTbody = document.getElementById('scriptActivityTbody');
-    var assessmentName = 'Health Risk Assessment';
-    var rowDate = '', rowBy = 'Sage', rowProgram = 'Health Risk Assessment', rowActType = 'Assessments';
-    var pendingRow = scriptTbody ? scriptTbody.querySelector('tr[data-pending="true"]') : null;
-    if (pendingRow) {
-      var cells = pendingRow.querySelectorAll('td');
-      var link = pendingRow.querySelector('a');
-      if (link && link.textContent.trim()) assessmentName = link.textContent.trim();
-      if (cells[2]) rowDate = cells[2].textContent.trim();
-      if (cells[3]) rowBy = cells[3].textContent.trim();
-      if (cells[7]) rowProgram = cells[7].textContent.trim();
-      if (cells[9]) rowActType = cells[9].textContent.trim();
-    }
-
-    // Replace the scheduled row with a locked-down "actively calling" row
-    d.scriptActivity = d.scriptActivity.filter(function(html) {
-      return !(html.indexOf('data-pending="true"') !== -1 && html.indexOf(assessmentName) !== -1);
-    });
-    d.scriptActivity.unshift(_sr_calling(assessmentName, rowDate, rowBy, rowProgram, rowActType));
-
-    window._gcSelectedActivity = assessmentName;
-    populateTabs(key);
-    goToActivitySummary();
-
-    // Swap this button out for "Sage Completed Call", in the same toolbar slot
-    var callingBtn = document.getElementById('sageActivelyCallingBtn');
-    if (callingBtn) callingBtn.remove();
+    // Reveal "Sage Completed Call" now that the call is underway
     var completedBtn = document.getElementById('sageCompletedCallBtn');
     if (completedBtn) completedBtn.style.display = '';
   };
