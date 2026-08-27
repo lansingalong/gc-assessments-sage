@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<script>
+  var params = new URLSearchParams(location.search);
+  var val = params.get('assessment');
+  if (val) {
+    localStorage.setItem('assessment-completed', val);
+    localStorage.setItem('assessment-completed-ts', Date.now().toString());
+    // Broadcast to all same-origin frames via postMessage up the chain
+    try { window.parent.postMessage({ type: 'ASSESSMENT_COMPLETED', assessmentType: val }, '*'); } catch(_) {}
+    try { window.top.postMessage({ type: 'ASSESSMENT_COMPLETED', assessmentType: val }, '*'); } catch(_) {}
+    // Also broadcast to all frames in the top window
+    try {
+      var frames = window.top.frames;
+      for (var i = 0; i < frames.length; i++) {
+        try { frames[i].postMessage({ type: 'ASSESSMENT_COMPLETED', assessmentType: val }, '*'); } catch(_) {}
+      }
+    } catch(_) {}
+  }
+</script>
+</html>
