@@ -2627,9 +2627,8 @@
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">archive</span> Archive</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">history</span> Audit History</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">view_column</span> Choose Columns</span>
-            <button type="button" id="sageCompletedCallBtn" class="gc-sage-demo-btn" onclick="simulateSageCompletedCall();" style="margin:10px 0 10px auto;display:flex;align-items:center;gap:6px;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">
-              <span class="material-icons" style="font-size:14px;">support_agent</span> Sage Completed Call
-            </button>
+            <button type="button" id="sageActivelyCallingBtn" class="gc-sage-demo-btn" onclick="simulateSageActivelyCalling();" style="margin:10px 0 10px auto;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">Sage in Progress</button>
+            <button type="button" id="sageCompletedCallBtn" class="gc-sage-demo-btn" onclick="simulateSageCompletedCall();" style="display:none;margin:10px 0 10px auto;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">Sage Completed Call</button>
           </div>
 
           <div class="gc-table-wrap" style="margin-bottom:6px;">
@@ -2894,9 +2893,7 @@
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">send</span> Refer</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">history</span> Audit History</span>
             <span class="gc-table-action"><span class="material-icons" style="font-size:13px;">check_box</span> Bulk Complete</span>
-            <button type="button" class="gc-sage-demo-btn" onclick="simulateSageInProgress();" style="margin:10px 0 10px auto;display:flex;align-items:center;gap:6px;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">
-              <span class="material-icons" style="font-size:14px;">support_agent</span> Sage in Progress
-            </button>
+            <button type="button" class="gc-sage-demo-btn" onclick="simulateSageScheduled();" style="margin:10px 0 10px auto;border-radius:3px;padding:8px 20px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;">Sage Starts Call</button>
           </div>
 
           <!-- Outstanding Activities table -->
@@ -4218,6 +4215,14 @@ window._gcAllAssessmentQA = {
       var modalName = document.getElementById('modalMemberName');
       if (modalName) modalName.textContent = m.name;
     }
+    // Default the Scheduled Date field to today's date instead of a stale hardcoded one
+    var schedInput = document.getElementById('modalScheduledDate');
+    if (schedInput) {
+      var todayNow = new Date();
+      var mmToday = String(todayNow.getMonth()+1).padStart(2,'0');
+      var ddToday = String(todayNow.getDate()).padStart(2,'0');
+      schedInput.value = mmToday+'/'+ddToday+'/'+todayNow.getFullYear()+' 08:10';
+    }
     // Force close all open menus with a slight delay to override toggle
     setTimeout(function() {
       document.querySelectorAll('.gc-tool-menu').forEach(function(m) { m.classList.remove('open'); });
@@ -4420,9 +4425,12 @@ window._gcAllAssessmentQA = {
   var _VIS = '<span class="material-icons" style="font-size:14px;color:var(--teal);cursor:pointer;">visibility</span>';
   var _DEL = '<span style="font-size:10px;color:var(--link);cursor:pointer;">Delete</span>';
   var _SDOC = '<span class="material-icons" style="font-size:14px;color:var(--teal);cursor:pointer;">description</span><br>' + _DEL;
+  var _SDOC_DISABLED = '<span class="material-icons" style="font-size:14px;color:#ccc;cursor:not-allowed;">description</span><br><span style="font-size:10px;color:#ccc;cursor:not-allowed;">Delete</span>';
   function _nr(type,note,by,date){return '<tr><td><input type="checkbox"/></td><td>'+type+'</td><td>'+note+'</td><td>'+_VIS+'</td><td>N/A</td><td>N/A</td><td>'+by+'</td><td>'+date+'</td><td>N/A</td><td>N/A</td></tr>';}
   function _sr(script,date,by,status,complete,program,score,actType,outcome,dur){return '<tr><td><input type="checkbox"/></td><td><a href="#" style="color:var(--link);">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>'+status+'</td><td>'+complete+'</td><td>N/A</td><td>'+program+'</td><td>'+score+'</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">'+outcome+'</a></td><td>'+dur+'</td><td>'+_SDOC+'</td></tr>';}
-  function _sr_pending(script,date,by,program,actType){return '<tr data-pending="true"><td><input type="checkbox"/></td><td><a href="#" onclick="event.preventDefault();openScriptResponseModal(this.textContent);" style="color:var(--link);">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>In Progress</td><td>N/A</td><td>N/A</td><td>'+program+'</td><td>0</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">Add</a></td><td>N/A</td><td>'+_SDOC+'</td></tr>';}
+  function _sr_pending(script,date,by,program,actType,status){return '<tr data-pending="true"><td><input type="checkbox"/></td><td><a href="#" onclick="event.preventDefault();openScriptResponseModal(this.textContent);" style="color:var(--link);">'+script+'</a></td><td>'+date+'</td><td>'+by+'</td><td>'+(status||'In Progress')+'</td><td>N/A</td><td>N/A</td><td>'+program+'</td><td>0</td><td>'+actType+'</td><td><a href="#" style="color:var(--link);">Add</a></td><td>N/A</td><td>'+_SDOC+'</td></tr>';}
+  // Sage is actively on the call — the row is locked down until the call finishes
+  function _sr_calling(script,date,by,program,actType){return '<tr data-pending="true"><td><input type="checkbox"/></td><td><span style="color:#999;cursor:not-allowed;">'+script+'</span></td><td>'+date+'</td><td>'+by+'</td><td>In Progress</td><td>N/A</td><td>N/A</td><td>'+program+'</td><td>0</td><td>'+actType+'</td><td><span style="color:#999;cursor:not-allowed;">Add</span></td><td>N/A</td><td>'+_SDOC_DISABLED+'</td></tr>';}
   function _gr(date,by,type,outcome){return '<tr><td>'+date+'</td><td>'+by+'</td><td>N/A</td><td>N/A</td><td>'+type+'</td><td>N/A</td><td>N/A</td><td><a href="#" style="color:var(--link);">'+outcome+'</a></td><td>'+_VIS+'</td><td>'+_DEL+'</td></tr>';}
   function _gs(sched,by,type){return '<tr><td>N/A</td><td>N/A</td><td>'+sched+'</td><td>'+by+'</td><td>'+type+'</td><td>N/A</td><td>N/A</td><td><a href="#" style="color:var(--link);">Scheduled</a></td><td>'+_VIS+'</td><td>'+_DEL+'</td></tr>';}
   function _or(type,priority,followUp,callTime,created){return '<tr><td><input type="checkbox"/></td><td>'+type+'</td><td></td><td>'+priority+'</td><td>'+followUp+'</td><td>N/A</td><td>'+callTime+'</td><td>N/A</td><td>N/A</td><td>N/A</td><td>Beatrice Kanya : All Access Admin</td><td>N/A</td><td>Accepted</td><td>Beatrice Kanya : All Access Admin</td><td>N/A</td><td style="font-size:10px;">'+created+'</td><td style="white-space:nowrap;">'+_ACT+'</td></tr>';}
@@ -5245,7 +5253,7 @@ window._gcAllAssessmentQA = {
   }
 
   // Demo: simulate Sage (AI) picking up whatever is outstanding for this member and calling them
-  window.simulateSageInProgress = function() {
+  window.simulateSageScheduled = function() {
     var key = currentMemberKey;
     var d = memberTabData[key];
     if (!d) return;
@@ -5292,7 +5300,7 @@ window._gcAllAssessmentQA = {
       d.outstandingActivities = d.outstandingActivities.filter(function(html) { return html.indexOf(name) === -1; });
       var alreadyPending = d.scriptActivity.some(function(html) { return html.indexOf(name) !== -1; });
       if (!alreadyPending) {
-        d.scriptActivity.unshift(_sr_pending(name, scriptDateStr, 'Sage', 'Health Risk Assessment', 'Assessments'));
+        d.scriptActivity.unshift(_sr_pending(name, scriptDateStr, 'Sage', 'Health Risk Assessment', 'Assessments', 'Scheduled'));
       }
       d.generalActivity.unshift(_gr(createdStr, 'Sage', name, 'Pending'));
     });
@@ -5300,6 +5308,43 @@ window._gcAllAssessmentQA = {
     window._gcSelectedActivity = pickedUp[0];
     populateTabs(key);
     goToActivitySummary();
+  };
+
+  // Demo: simulate Sage actively on the call, filling out the form live — lock the row down until it's done
+  window.simulateSageActivelyCalling = function() {
+    var key = currentMemberKey;
+    var d = memberTabData[key];
+    if (!d) return;
+
+    var scriptTbody = document.getElementById('scriptActivityTbody');
+    var assessmentName = 'Health Risk Assessment';
+    var rowDate = '', rowBy = 'Sage', rowProgram = 'Health Risk Assessment', rowActType = 'Assessments';
+    var pendingRow = scriptTbody ? scriptTbody.querySelector('tr[data-pending="true"]') : null;
+    if (pendingRow) {
+      var cells = pendingRow.querySelectorAll('td');
+      var link = pendingRow.querySelector('a');
+      if (link && link.textContent.trim()) assessmentName = link.textContent.trim();
+      if (cells[2]) rowDate = cells[2].textContent.trim();
+      if (cells[3]) rowBy = cells[3].textContent.trim();
+      if (cells[7]) rowProgram = cells[7].textContent.trim();
+      if (cells[9]) rowActType = cells[9].textContent.trim();
+    }
+
+    // Replace the scheduled row with a locked-down "actively calling" row
+    d.scriptActivity = d.scriptActivity.filter(function(html) {
+      return !(html.indexOf('data-pending="true"') !== -1 && html.indexOf(assessmentName) !== -1);
+    });
+    d.scriptActivity.unshift(_sr_calling(assessmentName, rowDate, rowBy, rowProgram, rowActType));
+
+    window._gcSelectedActivity = assessmentName;
+    populateTabs(key);
+    goToActivitySummary();
+
+    // Swap this button out for "Sage Completed Call", in the same toolbar slot
+    var callingBtn = document.getElementById('sageActivelyCallingBtn');
+    if (callingBtn) callingBtn.remove();
+    var completedBtn = document.getElementById('sageCompletedCallBtn');
+    if (completedBtn) completedBtn.style.display = '';
   };
 
   // Demo: simulate Sage finishing the call and reporting back full assessment answers
@@ -5322,19 +5367,24 @@ window._gcAllAssessmentQA = {
     var performedDateStr = fmtDateTime(performedAt);
     var completedDateStr = fmtDateTime(completedAt);
 
-    // Find the pending script (added by Sage in Progress) for this member
+    // Find the pending script (added by Sage Scheduled / Sage in Progress) for this member
     var scriptTbody = document.getElementById('scriptActivityTbody');
     var assessmentName = 'Health Risk Assessment';
     var pendingRow = scriptTbody ? scriptTbody.querySelector('tr[data-pending="true"]') : null;
     if (pendingRow) {
-      var link = pendingRow.querySelector('a');
-      if (link && link.textContent.trim()) assessmentName = link.textContent.trim();
+      var nameCell = pendingRow.querySelectorAll('td')[1];
+      if (nameCell && nameCell.textContent.trim()) assessmentName = nameCell.textContent.trim();
     }
 
-    // Build the fully-answered Q&A set — every question gets an Option, and a Sub Option too
+    // Build the fully-answered Q&A set — every question gets an Option, a Sub Option, and its share of the score
+    var scriptScore = 21.72;
     var baseQA = (window._gcAllAssessmentQA && window._gcAllAssessmentQA[assessmentName]) || [];
-    var enrichedQA = baseQA.map(function(r) {
-      return { q: r.q, option: r.option, sub: (r.sub && r.sub.length) ? r.sub : r.option, score: r.score };
+    var perQScore = baseQA.length ? +(scriptScore / baseQA.length).toFixed(2) : 0;
+    var runningScore = 0;
+    var enrichedQA = baseQA.map(function(r, i) {
+      var qScore = (i === baseQA.length - 1) ? +(scriptScore - runningScore).toFixed(2) : perQScore;
+      runningScore += qScore;
+      return { q: r.q, option: r.option, sub: (r.sub && r.sub.length) ? r.sub : r.option, score: qScore };
     });
     localStorage.setItem('assessment-completed-qa-' + key, JSON.stringify({ assessmentType: assessmentName, qa: enrichedQA }));
 
@@ -5343,7 +5393,7 @@ window._gcAllAssessmentQA = {
       return !(html.indexOf('data-pending="true"') !== -1 && html.indexOf(assessmentName) !== -1);
     });
     d.scriptActivity.unshift(
-      _sr(assessmentName, performedDateStr, 'Sage', 'Completed', completedDateStr, assessmentName, '21.72', 'Assessments', 'Add', durationStr)
+      _sr(assessmentName, performedDateStr, 'Sage', 'Completed', completedDateStr, assessmentName, scriptScore.toFixed(2), 'Assessments', 'Add', durationStr)
     );
 
     // Flip the matching General Activity row's outcome from Pending to Completed
